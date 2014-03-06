@@ -35,6 +35,7 @@
 
 // Generated from xdg-shell.xml
 #include "video/out/wayland/xdg-shell-protocol.h"
+#include "video/out/wayland/scaler-protocol.h"
 
 struct vo;
 
@@ -82,6 +83,8 @@ struct vo_wayland_state {
         struct vo_wayland_output *current_output;
 
         int display_fd;
+
+        struct wl_scaler *scaler;
 
         struct wl_shm *shm;
 

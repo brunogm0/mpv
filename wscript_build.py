@@ -84,9 +84,17 @@ def build(ctx):
         source = "video/out/wayland/protocol/xdg-shell.xml",
         target = "video/out/wayland/xdg-shell-protocol.c")
 
+    ctx.wayland_protocol_code(
+        source = "video/out/wayland/protocol/scaler.xml",
+        target = "video/out/wayland/scaler-protocol.c")
+
     ctx.wayland_protocol_header(
         source = "video/out/wayland/protocol/xdg-shell.xml",
         target = "video/out/wayland/xdg-shell-protocol.h")
+
+    ctx.wayland_protocol_header(
+        source = "video/out/wayland/protocol/scaler.xml",
+        target = "video/out/wayland/scaler-protocol.h")
 
     getch2_c = {
         'win32':  'osdep/terminal-win.c',
@@ -378,6 +386,7 @@ def build(ctx):
         ( "video/out/w32_common.c",              "gdi" ),
         ( "video/out/wayland_common.c",          "wayland" ),
         ( "video/out/wayland/xdg-shell-protocol.c", "wayland" ),
+        ( "video/out/wayland/scaler-protocol.c", "wayland" ),
         ( "video/out/win_state.c"),
         ( "video/out/x11_common.c",              "x11" ),
 

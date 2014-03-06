@@ -137,6 +137,8 @@ struct priv {
     struct wl_surface *osd_surfaces[MAX_OSD_PARTS];
     struct wl_subsurface *osd_subsurfaces[MAX_OSD_PARTS];
 
+    struct wl_viewport *viewport; // optional scaler in case swscale is not available
+
     struct wl_list format_list;
     const struct fmtentry *video_format;
 
@@ -168,6 +170,7 @@ struct priv {
     int enable_alpha;
     int use_rgb565;
     int use_triplebuffering;
+    int use_viewport;
 };
 
 /* copied from weston clients */
@@ -511,23 +514,50 @@ static bool resize(struct priv *p)
 
     mp_sws_set_from_cmdline(p->sws, p->vo->opts->sws_opts);
     p->sws->src = p->in_format;
-    p->sws->dst = (struct mp_image_params) {
-        .imgfmt = p->video_format->mp_fmt,
-        .w = p->dst_w,
-        .h = p->dst_h,
-        .d_w = p->dst_w,
-        .d_h = p->dst_h,
-    };
+
+    if (p->use_viewport) {
+        p->sws->dst = (struct mp_image_params) {
+            .imgfmt = p->video_format->mp_fmt,
+            .w = p->width,
+            .h = p->height,
+            .d_w = p->width,
+            .d_h = p->height,
+        };
+    }
+    else {
+        p->sws->dst = (struct mp_image_params) {
+            .imgfmt = p->video_format->mp_fmt,
+            .w = p->dst_w,
+            .h = p->dst_h,
+            .d_w = p->dst_w,
+            .d_h = p->dst_h,
+        };
+    }
 
     mp_image_params_guess_csp(&p->sws->dst);
 
     if (mp_sws_reinit(p->sws) < 0)
         return false;
 
-    if (!buffer_pool_resize(&p->video_bufpool, p->dst_w, p->dst_h)) {
-        MP_ERR(wl, "failed to resize video buffers\n");
-        return false;
+    if (p->use_viewport) {
+        wl_viewport_set(p->viewport,
+                        wl_fixed_from_int(0), wl_fixed_from_int(0),
+                        wl_fixed_from_int(p->width), wl_fixed_from_int(p->height),
+                        p->dst_w, p->dst_h);
     }
+    else {
+        // use swscale
+        if (!buffer_pool_resize(&p->video_bufpool, p->dst_w, p->dst_h)) {
+            MP_ERR(wl, "failed to resize video buffers\n");
+            return false;
+        }
+    }
+
+    // osd buffer has to be always resized because of the input stuff
+    // I would neeed viewports for every surface, input transformation or
+    // telling mpv to use different coordinates for the osd
+    // This is better anyway, because with scaling we would have scaling
+    // artifacts anyway
     if (!buffer_pool_resize(&p->osd_bufpool, p->dst_w, p->dst_h)) {
         MP_ERR(wl, "failed to resize osd buffers\n");
         return false;
@@ -834,6 +864,9 @@ static void uninit(struct vo *vo)
         wl_surface_destroy(p->osd_surfaces[i]);
     }
 
+    if (p->viewport)
+        wl_viewport_destroy(p->viewport);
+
     vo_wayland_uninit(vo);
 }
 
@@ -875,6 +908,10 @@ static int preinit(struct vo *vo)
     }
     wl_region_destroy(input);
 
+
+    if (wl->display.scaler && p->use_viewport)
+        p->viewport = wl_scaler_get_viewport(wl->display.scaler,
+                                             wl->window.video_surface);
 
     return 0;
 }
@@ -928,7 +965,12 @@ const struct vo_driver video_out_wayland = {
         OPT_FLAG("alpha", enable_alpha, 0),
         OPT_FLAG("rgb565", use_rgb565, 0),
         OPT_FLAG("triple-buffering", use_triplebuffering, 0),
+        OPT_FLAG("viewport", use_viewport, 0),
         {0}
+    },
+    .priv_defaults = &(const struct priv) {
+        .use_triplebuffering = 1,
+        .use_viewport = 1
     },
 };
 
