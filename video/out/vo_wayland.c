@@ -908,8 +908,13 @@ static int preinit(struct vo *vo)
     }
     wl_region_destroy(input);
 
+    if (p->use_viewport && wl->display.scaler == NULL) {
+        MP_WARN(wl, "No wl_scaler interface available\n"
+                    "Falling back to software scaling\n");
+        p->use_viewport = 0;
+    }
 
-    if (wl->display.scaler && p->use_viewport)
+    if (p->use_viewport)
         p->viewport = wl_scaler_get_viewport(wl->display.scaler,
                                              wl->window.video_surface);
 
