@@ -771,8 +771,6 @@ static bool create_display (struct vo_wayland_state *wl)
 
     wl->display.display_fd = wl_display_get_fd(wl->display.display);
 
-    printf("DISPLAY_FD: %d\n", wl->display.display_fd);
-
     return true;
 }
 
